@@ -44,6 +44,23 @@ const waitForTilesToLoad = async (millis) => {
     logInfo(tiles); // Proceed after ensuring all tiles are fully loaded
 };
 
+const autoFillWord = (word) => {
+    word = word.toLowerCase();
+    const keys = Array.from(document.querySelectorAll("[class*='Key-module_key__']"));
+    const keyMap = {};
+    const enterKeyString = '↵';
+    const backspaceKeyString = '←';
+    keys.forEach(key => {
+        keyMap[key.getAttribute('data-key')] = key;
+    });
+    for (let i = 0; i < 5; i++) {
+        keyMap[backspaceKeyString].click();
+    }
+    for (const letter of word) {
+        keyMap[letter].click();
+    }
+}
+
 const logInfo = async (tiles) => {
     tiles.forEach((tile, i) => {
         const row = Math.floor(i / 5);
@@ -67,6 +84,19 @@ const logInfo = async (tiles) => {
                 break;
         }
         currentWordList[row] += letter;
+    });
+
+    // Makes sure if letter shows up more than once, it's not an unused letter
+    unusedLetters.forEach(letter => {
+        if (correctLetters.indexOf(letter) > -1) {
+            unusedLetters.delete(letter);
+        }
+        for (const yellowSet of yellowLetters) {
+            if (yellowSet.has(letter)) {
+                unusedLetters.delete(letter);
+                break;
+            }
+        }
     });
 
     // console.log("Current word list:", currentWordList);
@@ -136,22 +166,42 @@ const updateHtml = async (potentialWords) => {
     wordGuessDiv.style.textAlign = 'center'; // Center the text and paragraphs
 
     potentialWords.forEach(word => {
-        const p = document.createElement('p');
+        const p = document.createElement('button');
         p.style.cssText = `font-family: 'Courier New', Courier, monospace; font-size: larger; background-color: rgb(121, 125, 180); color: rgb(225, 225, 225); padding: 10px; border-radius: 5px; margin: 5px; width: fit-content; font-weight: bold; transition: background-color 0.3s; display: inline-block;`;
         p.textContent = word;
         p.onmouseover = () => p.style.backgroundColor = 'rgb(78, 80, 119)';
         p.onmouseout = () => p.style.backgroundColor = 'rgb(121, 125, 180)';
+        p.onclick = () => autoFillWord(word);
         wordGuessDiv.appendChild(p);
     });
 };
 
 
+const addEventListeners = async (millis) => {
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-// Add event listener for "Enter" key press
-document.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' || event.key === 'Return') {
-        waitForTilesToLoad(1000);
+    let keyboard_rows = [];
+    while (true) {
+        await delay(millis);
+        keyboard_rows = Array.from(document.querySelectorAll("[class*='Tile-module_tile__']"));
+
+        if (keyboard_rows.length > 0) {
+            break;
+        }
     }
-});
+
+    await delay(millis);
+    
+    document.querySelectorAll(`[class*='Keyboard-module_row__']`)[2].querySelector('button').addEventListener('click', () => waitForTilesToLoad(1000));
+
+    // Add event listener for "Enter" key press
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === 'Return') {
+            waitForTilesToLoad(1000);
+        }
+    });
+};
+
 
 waitForTilesToLoad(1000);
+addEventListeners();
